@@ -1,0 +1,8 @@
+CREATE TABLE disaster_zones (
+    id BIGSERIAL PRIMARY KEY,
+    latitude DOUBLE PRECISION NOT NULL,
+    longitude DOUBLE PRECISION NOT NULL,
+    disaster_type disaster_type NOT NULL,
+    severity severity_level NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
