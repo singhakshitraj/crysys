@@ -17,9 +17,8 @@ def db_connect():
             cursor_factory=RealDictCursor
         )
         yield connection
-        connection.commit()
     except psycopg2.DatabaseError as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail={'details':'Unable to connect to database.'})
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail={'details':'Unable to connect to database.','message':str(e)})
     finally:
         if connection is not None:
             connection.close()

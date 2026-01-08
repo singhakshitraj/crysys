@@ -1,24 +1,29 @@
-CREATE TYPE disaster_type AS ENUM (
+CREATE TYPE all_disaster_type AS ENUM (
     'EARTHQUAKE',
     'FLOOD',
     'FIRE',
     'CYCLONE',
-    'DROUGHT'
+    'DROUGHT',
+    'LANDSLIDE',
+    'TORNADO',
+    'SINKHOLE',
+    'TSUNAMI',
+    'WILDFIRE',
+    'BLIZZARD'
 );
 
-CREATE TYPE severity_level AS ENUM (
+CREATE TYPE all_danger_level AS ENUM (
     'LOW',
     'MEDIUM',
-    'HIGH',
-    'CRITICAL'
+    'HIGH'
 );
 
-CREATE TYPE role_enum AS ENUM (
+CREATE TYPE all_roles AS ENUM (
     'USER',
     'ADMIN'
 );
 
-CREATE TYPE sos_status AS ENUM (
+CREATE TYPE all_sos_status AS ENUM (
     'PENDING',
     'ACCEPTED',
     'RESOLVED',

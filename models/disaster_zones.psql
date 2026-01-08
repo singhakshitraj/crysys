@@ -1,8 +1,11 @@
-CREATE TABLE disaster_zones (
-    id BIGSERIAL PRIMARY KEY,
-    latitude DOUBLE PRECISION NOT NULL,
-    longitude DOUBLE PRECISION NOT NULL,
-    disaster_type disaster_type NOT NULL,
-    severity severity_level NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE disaster_zone (
+    id bigserial primary key,
+    latitude numeric(38,2),
+    longitude numeric(38,2),
+    created_at timestamp without time zone DEFAULT now(),
+    danger_level all_danger_level,
+    disaster_type all_disaster_type,
+    is_active boolean DEFAULT true NOT NULL,
+    name varchar(255) NOT NULL,
+    radius double precision NOT NULL
 );

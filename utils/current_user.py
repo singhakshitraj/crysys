@@ -7,7 +7,15 @@ import jwt,os
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 def create_access_token(data:dict):
-    data.update({'expires':str(datetime.now()+timedelta(minutes=90))})
+    data.update({'exp':datetime.now()+timedelta(minutes=90)})
+    return jwt.encode(
+        data,
+        key=os.environ.get('SECRET_KEY')or"",
+        algorithm="HS256",
+    )
+
+def create_refresh_token(data:dict):
+    data.update({'exp':datetime.now()+timedelta(days=90)})
     return jwt.encode(
         data,
         key=os.environ.get('SECRET_KEY')or"",

@@ -1,7 +1,8 @@
-CREATE TABLE safety_tips (
-    id BIGSERIAL PRIMARY KEY,
-    disaster_type disaster_type NOT NULL,
-    title VARCHAR(255) NOT NULL,
-    description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE safety_tip (
+    id bigserial PRIMARY KEY,
+    created_at timestamp(6) without time zone default now(),
+    description varchar(255),
+    disaster_type all_disaster_type,
+    title varchar(255),
+    disaster_zone_id integer REFERENCES disaster_zone(id)
 );
