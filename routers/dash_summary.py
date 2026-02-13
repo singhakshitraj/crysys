@@ -1,145 +1,155 @@
 from fastapi import APIRouter,Depends,Query
-from psycopg2.extensions import connection
-from utils.enums.danger_level import DangerLevel
-from utils.enums.sos_status import SosStatus
-from utils.enums.disaster_type import DisasterType
-from config.db import db_connect
+from models.enums import DangerLevel,SosStatus,DisasterType
 from utils.validation_models.sos_request import SosRequestDto
-from psycopg2.extras import RealDictCursor
 from datetime import date,timedelta
 import datetime
+from sqlalchemy.orm import Session
+from sqlalchemy import select, func, or_
+from datetime import date, timedelta, datetime
+from models.disaster_zones import DisasterZone
+from models.sos_requests import SOSRequest
+from config.db import db_connection
 
 router=APIRouter(
     prefix='/dashboard'
 )
-def count_active_or_null_zones(conn: connection) -> int:
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT COUNT(*)
-            FROM disaster_zone
-            WHERE is_active = TRUE OR is_active IS NULL
-        """)
-        vals=cur.fetchone().get('count')
-        return vals
+def count_active_or_null_zones(db: Session) -> int:
+    stmt = select(func.count()).select_from(DisasterZone).where(
+        or_(
+            DisasterZone.is_active.is_(True),
+            DisasterZone.is_active.is_(None),
+        )
+    )
+    return db.scalar(stmt) or 0
 
+def count_zones_by_danger_level(
+    db: Session,
+    danger_level: DangerLevel
+) -> int:
 
-def count_zones_by_danger_level(conn: connection, danger_level: DangerLevel) -> int:
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT COUNT(*)
-            FROM disaster_zone
-            WHERE danger_level = %s
-        """, (danger_level.value,))
-        vals=cur.fetchone().get('count')
-        return vals
+    stmt = select(func.count()).where(
+        DisasterZone.danger_level == danger_level
+    )
 
-def count_sos_by_status(conn: connection, status: SosStatus) -> int:
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT COUNT(*)
-            FROM sos_requests
-            WHERE status = %s
-        """, (status.value,))
-        vals=cur.fetchone().get('count')
-        return vals
+    return db.scalar(stmt) or 0
 
-@router.get('/summary')
-def summary(conn=Depends(db_connect)):
-    try:
-        total_zones = len(DisasterType)
-        active_disasters = count_active_or_null_zones(conn)
-        critical_zones = count_zones_by_danger_level(conn, DangerLevel.HIGH)
-        pending_sos_requests = count_sos_by_status(conn, SosStatus.PENDING)
+def count_sos_by_status(db: Session, status: SosStatus) -> int:
+    stmt = select(func.count()).where(
+        SOSRequest.status == status
+    )
+    return db.scalar(stmt) or 0
 
-        return {
-            "total_zones":total_zones,
-            "active_disasters":active_disasters,
-            "critical_zones":critical_zones,
-            "pending_sos_requests":pending_sos_requests
-        }
-    finally:
-        conn.close()
+@router.get("/summary")
+def summary(db: Session = Depends(db_connection)):
 
-def find_recent_sos_requests(conn: connection, limit: int = 11):
-    with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("""
-            SELECT
-                id,message,
-                latitude,longitude,
-                status,disaster_type,
-                created_at,zone_id
-            FROM sos_requests
-            ORDER BY created_at DESC
-            LIMIT %s
-        """, (limit,))
-        return cur.fetchall()
+    total_zones = len(DisasterType)
+    active_disasters = count_active_or_null_zones(db)
+    critical_zones = count_zones_by_danger_level(db, DangerLevel.HIGH)
+    pending_sos_requests = count_sos_by_status(db, SosStatus.PENDING)
 
-def get_recent_sos_requests(conn:connection) -> list[SosRequestDto]:
-    try:
-        rows = find_recent_sos_requests(conn)
-        return [SosRequestDto(**row) for row in rows]
-    finally:
-        conn.close()
+    return {
+        "totalZones": total_zones,
+        "activeDisasters": active_disasters,
+        "criticalZones": critical_zones,
+        "pendingSos": pending_sos_requests,
+    }
 
-@router.get('/recent-sos')
-def recentsos(conn=Depends(db_connect)):
-    return get_recent_sos_requests(conn)
+def find_recent_sos_requests(
+    db: Session,
+    limit: int = 11
+):
+    stmt = (
+        select(
+            SOSRequest.id,
+            SOSRequest.message,
+            SOSRequest.latitude,
+            SOSRequest.longitude,
+            SOSRequest.status,
+            SOSRequest.disaster_type,
+            SOSRequest.created_at,
+            SOSRequest.zone_id,
+        )
+        .order_by(SOSRequest.created_at.desc())
+        .limit(limit)
+    )
 
-def count_sos_created_between(conn: connection,start_ts,end_ts) -> int:
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT COUNT(*)
-            FROM sos_requests
-            WHERE created_at >= %s
-              AND created_at < %s
-        """, (start_ts, end_ts))
-        vals=cur.fetchone().get('count')
-        return vals
+    rows = db.execute(stmt).mappings().all()
+    return rows
 
+def get_recent_sos_requests(db: Session) -> list[SosRequestDto]:
+    rows = find_recent_sos_requests(db)
+    return [SosRequestDto(**row) for row in rows]
 
-def count_active_or_null_zones_created_between(conn: connection,start_ts,end_ts) -> int:
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT COUNT(*)
-            FROM disaster_zone
-            WHERE created_at >= %s
-              AND created_at < %s
-              AND (is_active = TRUE OR is_active IS NULL)
-        """, (start_ts, end_ts))
-        vals=cur.fetchone().get('count')
-        return vals
+@router.get("/recent-sos")
+def recentsos(db: Session = Depends(db_connection)):
+    return get_recent_sos_requests(db)
 
-def get_disaster_sos_stats(conn,days: int) -> dict[str, list]:
+def count_sos_created_between(
+    db: Session,
+    start_ts,
+    end_ts
+) -> int:
+
+    stmt = select(func.count()).where(
+        SOSRequest.created_at >= start_ts,
+        SOSRequest.created_at < end_ts,
+    )
+
+    return db.scalar(stmt) or 0
+
+def count_active_or_null_zones_created_between(
+    db: Session,
+    start_ts,
+    end_ts
+) -> int:
+
+    stmt = select(func.count()).where(
+        DisasterZone.created_at >= start_ts,
+        DisasterZone.created_at < end_ts,
+        or_(
+            DisasterZone.is_active.is_(True),
+            DisasterZone.is_active.is_(None),
+        ),
+    )
+
+    return db.scalar(stmt) or 0
+
+def get_disaster_sos_stats(db: Session, days: int) -> dict[str, list]:
+
     today = date.today()
     start_date = today - timedelta(days=days - 1)
 
-    dates: list[str] = []
-    active_disasters: list[int] = []
-    sos_counts: list[int] = []
+    dates = []
+    active_disasters = []
+    sos_counts = []
 
-    try:
-        for i in range(days):
-            current_date = start_date + timedelta(days=i)
-            start_ts = datetime.datetime.combine(current_date, datetime.datetime.min.time())
-            end_ts = start_ts + timedelta(days=1)
-            dates.append(current_date.isoformat())
-            sos_count = count_sos_created_between(
-                conn, start_ts, end_ts
-            )
-            sos_counts.append(sos_count)
-            disaster_count = count_active_or_null_zones_created_between(
-                conn, start_ts, end_ts
-            )
-            active_disasters.append(disaster_count)
+    for i in range(days):
+        current_date = start_date + timedelta(days=i)
 
-        return {
-            "dates": dates,
-            "activeDisasters": active_disasters,
-            "sosCounts": sos_counts
-        }
-    finally:
-        conn.close()
+        start_ts = datetime.combine(current_date, datetime.min.time())
+        end_ts = start_ts + timedelta(days=1)
+
+        dates.append(current_date.isoformat())
+
+        sos_counts.append(
+            count_sos_created_between(db, start_ts, end_ts)
+        )
+
+        active_disasters.append(
+            count_active_or_null_zones_created_between(
+                db, start_ts, end_ts
+            )
+        )
+
+    return {
+        "dates": dates,
+        "activeDisasters": active_disasters,
+        "sosCounts": sos_counts,
+    }
 
 @router.get("/stats")
-def get_stats(conn=Depends(db_connect),days: int = Query(default=7, ge=1, le=365)):
-    return get_disaster_sos_stats(conn,days)
+def get_stats(
+    db: Session = Depends(db_connection),
+    days: int = Query(default=7, ge=1, le=365),
+):
+    return get_disaster_sos_stats(db, days)

@@ -2,8 +2,7 @@ from pydantic import BaseModel
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from utils.enums.sos_status import SosStatus
-from utils.enums.disaster_type import DisasterType
+from models.enums import SosStatus,DisasterType
 
 
 class SosRequestDto(BaseModel):
@@ -15,3 +14,12 @@ class SosRequestDto(BaseModel):
     disaster_type: DisasterType
     created_at: datetime
     zone_id: int | None
+
+class CreateSosRequest(BaseModel):
+    latitude: Decimal | None
+    longitude: Decimal | None
+    message: str
+    disaster_type: DisasterType
+
+class MessageResponse(BaseModel):
+    message: str

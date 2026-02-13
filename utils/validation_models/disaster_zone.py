@@ -1,7 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from utils.enums.danger_level import DangerLevel
-from utils.enums.disaster_type import DisasterType
+from models.enums import DangerLevel,DisasterType
 
 class DisasterZoneDto(BaseModel):
     id: int
@@ -25,4 +24,12 @@ class CreateDisasterZoneDto(BaseModel):
     danger_level: DangerLevel
     center_latitude: float
     center_longitude: float
+    radius: float
+    
+class UpdateDisasterZoneDto(BaseModel):
+    name: str
+    disaster_type: DisasterType
+    danger_level: DangerLevel
+    latitude: float
+    longitude: float
     radius: float
