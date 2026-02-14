@@ -38,7 +38,7 @@ pipeline {
                         docker run --rm \
                           --env-file $ENV_FILE \
                           ${params.IMAGE_NAME}:${params.IMAGE_TAG} \
-                          alembic upgrade head
+                          env | grep -i database
                     """
                 }
             }
